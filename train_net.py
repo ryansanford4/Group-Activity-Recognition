@@ -171,8 +171,11 @@ def train_volleyball(data_loader, model, device, optimizer, epoch, cfg):
         activities_in = activities_in[:, 0].reshape((batch_size,))
 
         # forward
-        actions_scores, activities_scores = model(
-            (batch_data[0], batch_data[1]))
+        frame_input = batch_data[0]
+        bbox_input = batch_data[1]
+        
+        frame_input = torch.reshape(frame_input,(batch_size*num_frames, 3, frame_input.shape[2], frame_input.shape[3]))
+        activities_scores = model(frame_input)
 
         # Predict actions
         actions_weights = torch.tensor(cfg.actions_weights).to(device=device)
