@@ -78,7 +78,7 @@ def train_net(cfg):
     # else:
     #     assert(False)
 
-    model = resnet50(num_classes=cfg.num_activities)
+    model = resnet50(sample_size=112, sample_duration=16, num_classes=cfg.num_activities)
 
     if cfg.use_multi_gpu:
         model = torch.nn.DataParallel(model)
