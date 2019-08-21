@@ -9,7 +9,7 @@ class Config(object):
 
     def __init__(self, dataset_name):
         # Global
-        self.image_size = 720, 1280  #input image size
+        self.image_size = 224, 224  #input image size
         self.batch_size =  32  #train batch size 
         self.test_batch_size = 8  #test batch size
         self.num_boxes = 12  #max number of bounding boxes in each frame
