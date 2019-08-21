@@ -24,7 +24,7 @@ class Config(object):
         self.dataset_name=dataset_name 
         
         if dataset_name=='volleyball':
-            self.data_path='data/volleyball'  #data path for the volleyball dataset
+            self.data_path='/home/sldeeplearning/kirill/workspace/volleyball_activity/Group-Activity-Recognition/data/volleyball'  #data path for the volleyball dataset
             self.train_seqs = [ 1,3,6,7,10,13,15,16,18,22,23,31,32,36,38,39,40,41,42,48,50,52,53,54,
                                 0,2,8,12,17,19,24,26,27,28,30,33,46,49,51]  #video id list of train set 
             self.test_seqs = [4,5,9,11,14,20,21,25,29,34,35,37,43,44,45,47]  #video id list of test set
