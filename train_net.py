@@ -13,7 +13,7 @@ from dataset import *
 from utils import *
 
 from I3D import InceptionI3d
-from wide_resnet import WideResNet
+from wide_resnet import WideResNet, resnet50
 
 def set_bn_eval(m):
     classname = m.__class__.__name__
@@ -78,7 +78,7 @@ def train_net(cfg):
     # else:
     #     assert(False)
 
-    model = WideResNet(num_classes=cfg.num_activities)
+    model = resnet50(num_classes=cfg.num_activities)
 
     if cfg.use_multi_gpu:
         model = torch.nn.DataParallel(model)

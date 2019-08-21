@@ -4,7 +4,7 @@ from train_net import *
 
 cfg=Config('volleyball')
 
-cfg.device_list="0,1,2,3"
+cfg.device_list="7"
 cfg.training_stage=1
 cfg.stage1_model_path=''
 cfg.train_backbone=True
