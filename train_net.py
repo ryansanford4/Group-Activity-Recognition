@@ -173,7 +173,7 @@ def train_volleyball(data_loader, model, device, optimizer, epoch, cfg):
         # forward
         frame_input = batch_data[0]
         bbox_input = batch_data[1]
-        
+        frame_input = frame_input.permute((0, 2, 1, 3, 4))
         # frame_input = torch.reshape(frame_input,(batch_size*num_frames, 3, frame_input.shape[3], frame_input.shape[4]))
         activities_scores = model(frame_input)
 
