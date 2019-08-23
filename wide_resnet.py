@@ -151,10 +151,10 @@ class WideResNet(nn.Module):
         x = self.layer4(x)
         print(x.size())
         # T x H x W x C 
-
         x = self.avgpool(x)
 
         x = x.view(x.size(0), -1)
+        print(x.size())
         x = self.fc(x)
 
         return torch.nn.Softmax(x)
