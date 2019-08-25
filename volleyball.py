@@ -194,8 +194,7 @@ class VolleyballDataset(data.Dataset):
                         for fid in range(src_fid - self.num_before, src_fid + self.num_after + 1)]
         else:
             if self.is_training:
-                sample_frames = random.sample(
-                    range(src_fid - self.num_before, src_fid + self.num_after + 1), 3)
+                sample_frames = list(range(src_fid - self.num_before, src_fid + self.num_after + 1))
                 return [(sid, src_fid, fid)
                         for fid in sample_frames]
             else:
