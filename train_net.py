@@ -1,5 +1,6 @@
 import torch
 import torch.optim as optim
+import torch.nn as F
 
 import time
 import random
@@ -61,24 +62,7 @@ def train_net(cfg):
     else:
         device = torch.device('cpu')
 
-    # Build model and optimizer
-    # basenet_list = {'volleyball': Basenet_volleyball,
-    #                 'collective': Basenet_collective}
-    # gcnnet_list = {'volleyball': GCNnet_volleyball,
-    #                'collective': GCNnet_collective}
-
-    # if cfg.training_stage == 1:
-    #     Basenet = basenet_list[cfg.dataset_name]
-    #     model = Basenet(cfg)
-    # elif cfg.training_stage == 2:
-    #     GCNnet = gcnnet_list[cfg.dataset_name]
-    #     model = GCNnet(cfg)
-    #     # Load backbone
-    #     model.loadmodel(cfg.stage1_model_path)
-    # else:
-    #     assert(False)
-
-    model = resnet50(sample_size=112, sample_duration=16, num_classes=cfg.num_activities)
+    model = resnet50(sample_size=32*7, sample_duration=16, num_classes=cfg.num_activities)
 
     if cfg.use_multi_gpu:
         model = torch.nn.DataParallel(model)
@@ -149,7 +133,7 @@ def train_net(cfg):
 
 
 def train_volleyball(data_loader, model, device, optimizer, epoch, cfg):
-
+    ce_loss = F.CrossEntropyLoss()
     actions_meter = AverageMeter()
     activities_meter = AverageMeter()
     loss_meter = AverageMeter()
@@ -175,19 +159,10 @@ def train_volleyball(data_loader, model, device, optimizer, epoch, cfg):
         bbox_input = batch_data[1]
         frame_input = frame_input.permute((0, 2, 1, 3, 4))
         # frame_input = torch.reshape(frame_input,(batch_size*num_frames, 3, frame_input.shape[3], frame_input.shape[4]))
-        print(frame_input.size())
         activities_scores = model(frame_input)
 
-        # Predict actions
-        # actions_weights = torch.tensor(cfg.actions_weights).to(device=device)
-        # actions_loss = F.cross_entropy(
-            # actions_scores, actions_in, weight=actions_weights)
-        # actions_labels = torch.argmax(actions_scores, dim=1)
-        # actions_correct = torch.sum(
-            # torch.eq(actions_labels.int(), actions_in.int()).float())
-
         # Predict activities
-        activities_loss = F.cross_entropy(activities_scores, activities_in)
+        activities_loss = ce_loss(activities_scores, activities_in)
         activities_labels = torch.argmax(activities_scores, dim=1)
         activities_correct = torch.sum(
             torch.eq(activities_labels.int(), activities_in.int()).float())
@@ -242,22 +217,22 @@ def test_volleyball(data_loader, model, device, epoch, cfg):
                 (batch_size, num_frames))
 
             # forward
-            actions_scores, activities_scores = model(
-                (batch_data_test[0], batch_data_test[1]))
+            # actions_scores, activities_scores = model(
+                # (batch_data_test[0], batch_data_test[1]))
 
             # Predict actions
-            actions_in = actions_in[:, 0, :].reshape(
-                (batch_size*cfg.num_boxes,))
+            # actions_in = actions_in[:, 0, :].reshape(
+                # (batch_size*cfg.num_boxes,))
             activities_in = activities_in[:, 0].reshape((batch_size,))
 
-            actions_weights = torch.tensor(
-                cfg.actions_weights).to(device=device)
-            actions_loss = F.cross_entropy(
-                actions_scores, actions_in, weight=actions_weights)
-            actions_labels = torch.argmax(actions_scores, dim=1)
+            # actions_weights = torch.tensor(
+            #     cfg.actions_weights).to(device=device)
+            # actions_loss = F.cross_entropy(
+            #     actions_scores, actions_in, weight=actions_weights)
+            # actions_labels = torch.argmax(actions_scores, dim=1)
 
             # Predict activities
-            activities_loss = F.cross_entropy(activities_scores, activities_in)
+            activities_loss = ce_loss(activities_scores, activities_in)
             activities_labels = torch.argmax(activities_scores, dim=1)
 
             actions_correct = torch.sum(
@@ -295,6 +270,7 @@ def train_collective(data_loader, model, device, optimizer, epoch, cfg):
     activities_meter = AverageMeter()
     loss_meter = AverageMeter()
     epoch_timer = Timer()
+    ce_loss = F.CrossEntropyLoss()
     for batch_data in data_loader:
         model.train()
         model.apply(set_bn_eval)
@@ -333,13 +309,13 @@ def train_collective(data_loader, model, device, optimizer, epoch, cfg):
             activities_in = activities_in[:, 0].reshape(batch_size,)
 
         # Predict actions
-        actions_loss = F.cross_entropy(actions_scores, actions_in, weight=None)
-        actions_labels = torch.argmax(actions_scores, dim=1)  # B*T*N,
-        actions_correct = torch.sum(
-            torch.eq(actions_labels.int(), actions_in.int()).float())
+        # actions_loss = ce_loss(actions_scores, actions_in, weight=None)
+        # actions_labels = torch.argmax(actions_scores, dim=1)  # B*T*N,
+        # actions_correct = torch.sum(
+            # torch.eq(actions_labels.int(), actions_in.int()).float())
 
         # Predict activities
-        activities_loss = F.cross_entropy(activities_scores, activities_in)
+        activities_loss = ce_loss(activities_scores, activities_in)
         activities_labels = torch.argmax(activities_scores, dim=1)  # B*T,
         activities_correct = torch.sum(
             torch.eq(activities_labels.int(), activities_in.int()).float())

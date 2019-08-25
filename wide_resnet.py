@@ -152,12 +152,10 @@ class WideResNet(nn.Module):
         print(x.size())
         # T x H x W x C 
         x = self.avgpool(x)
-
         x = x.view(x.size(0), -1)
-        print(x.size())
         x = self.fc(x)
 
-        return torch.nn.Softmax(x)
+        return x
 
 
 def get_fine_tuning_parameters(model, ft_begin_index):

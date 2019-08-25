@@ -243,7 +243,7 @@ class VolleyballDataset(data.Dataset):
                     actions[-1][:self.num_boxes - len(actions[-1])]
             activities.append(self.anns[sid][src_fid]['group_activity'])
 
-        images = np.stack(images)
+        images = np.stack(images, axis=0)
         activities = np.array(activities, dtype=np.int32)
         bboxes = np.vstack(boxes).reshape([-1, self.num_boxes, 4])
         actions = np.hstack(actions).reshape([-1, self.num_boxes])
@@ -253,5 +253,4 @@ class VolleyballDataset(data.Dataset):
         bboxes = torch.from_numpy(bboxes).float()
         actions = torch.from_numpy(actions).long()
         activities = torch.from_numpy(activities).long()
-
         return images, bboxes, actions, activities
