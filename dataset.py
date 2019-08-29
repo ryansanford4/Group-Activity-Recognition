@@ -21,7 +21,7 @@ def return_dataset(cfg):
                                        num_after=cfg.num_after,is_training=True,is_finetune=(cfg.training_stage==1))
 
         validation_set=VolleyballDataset(all_anns,all_tracks,test_frames,
-                                      cfg.data_path,cfg.image_size,cfg.out_size,num_before=cfg.num_before,
+                                      cfg.data_path, cfg.image_size, cfg.out_size, num_before=cfg.num_before,
                                          num_after=cfg.num_after,is_training=False,is_finetune=(cfg.training_stage==1))
     
     elif cfg.dataset_name=='collective':

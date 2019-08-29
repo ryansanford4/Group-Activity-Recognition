@@ -1,6 +1,7 @@
 import torch
 import torch.optim as optim
 import torch.nn as F
+import torchvision
 
 import time
 import random
@@ -16,6 +17,11 @@ from utils import *
 from I3D import InceptionI3d
 from wide_resnet import WideResNet, resnet50
 
+from collections import OrderedDict
+
+from torchsummary import summary
+from tensorboardX import SummaryWriter
+
 def set_bn_eval(m):
     classname = m.__class__.__name__
     if classname.find('BatchNorm') != -1:
@@ -27,6 +33,27 @@ def adjust_lr(optimizer, new_lr):
     for param_group in optimizer.param_groups:
         param_group['lr'] = new_lr
 
+def to_cpu(model_state):
+    new_state = OrderedDict()
+    for k, v in model_state.items():
+        new_state[k] = v.cpu()
+    return new_state
+
+def save_checkpoint(epoch, model, optimizer, save_path, cpu):
+    if cpu:
+        model_state = to_cpu(model.state_dict())
+    else:
+        model_state = model.state_dict()
+
+    checkpoint = {
+        'next_epoch': epoch,
+        'model_state': model_state,
+        'optimizer_state': optimizer.state_dict(),
+        # 'scheduler_state': scheduler.state_dict(),
+    }
+
+    torch.save(checkpoint, save_path)
+
 
 def train_net(cfg):
     """
@@ -37,6 +64,7 @@ def train_net(cfg):
     # Show config parameters
     cfg.init_config()
     show_config(cfg)
+    tf_writer = SummaryWriter(log_dir=cfg.result_path)
 
     # Reading dataset
     training_set, validation_set = return_dataset(cfg)
@@ -62,13 +90,12 @@ def train_net(cfg):
     else:
         device = torch.device('cpu')
 
-    model = resnet50(sample_size=32*7, sample_duration=16, num_classes=cfg.num_activities)
+    model = resnet50(sample_size=32*7, sample_duration=16, crop_size=cfg.crop_size, num_classes=cfg.num_activities)
 
     if cfg.use_multi_gpu:
         model = torch.nn.DataParallel(model)
 
     model = model.to(device=device)
-
     model.train()
     model.apply(set_bn_eval)
 
@@ -82,7 +109,7 @@ def train_net(cfg):
     test = test_list[cfg.dataset_name]
 
     if cfg.test_before_train:
-        test_info = test(validation_loader, model, device, 0, cfg)
+        test_info = test(validation_loader, model, device, 0, cfg, tf_writer)
         print(test_info)
 
     # Training iteration
@@ -95,12 +122,12 @@ def train_net(cfg):
 
         # One epoch of forward and backward
         train_info = train(training_loader, model,
-                           device, optimizer, epoch, cfg)
+                           device, optimizer, epoch, cfg, tf_writer)
         show_epoch_info('Train', cfg.log_path, train_info)
 
         # Test
         if epoch % cfg.test_interval_epoch == 0:
-            test_info = test(validation_loader, model, device, epoch, cfg)
+            test_info = test(validation_loader, model, device, epoch, cfg,  tf_writer)
             show_epoch_info('Test', cfg.log_path, test_info)
 
             if test_info['activities_acc'] > best_result['activities_acc']:
@@ -121,24 +148,24 @@ def train_net(cfg):
                 torch.save(state, filepath)
                 print('model saved to:', filepath)
             elif cfg.training_stage == 1:
-                for m in model.modules():
-                    if isinstance(m, Basenet):
-                        filepath = cfg.result_path + \
-                            '/stage%d_epoch%d_%.2f%%.pth' % (
-                                cfg.training_stage, epoch, test_info['activities_acc'])
-                        m.savemodel(filepath)
-#                         print('model saved to:',filepath)
+                filepath = cfg.result_path + \
+                    '/stage%d_epoch%d_%.2f%%.pth' % (
+                        cfg.training_stage, epoch, test_info['activities_acc'])
+                save_checkpoint(epoch, model, optimizer, filepath, True)
             else:
                 assert False
 
+def qc_image(input_image):
+    output_image = torchvision.utils.make_grid(input_image, normalize=True, scale_each=True)
+    return output_image
 
-def train_volleyball(data_loader, model, device, optimizer, epoch, cfg):
+def train_volleyball(data_loader, model, device, optimizer, epoch, cfg, tf_writer):
     ce_loss = F.CrossEntropyLoss()
-    actions_meter = AverageMeter()
+    # actions_meter = AverageMeter()
     activities_meter = AverageMeter()
     loss_meter = AverageMeter()
     epoch_timer = Timer()
-    for batch_data in data_loader:
+    for i, batch_data in enumerate(data_loader):
         model.train()
         model.apply(set_bn_eval)
 
@@ -157,9 +184,12 @@ def train_volleyball(data_loader, model, device, optimizer, epoch, cfg):
         # forward
         frame_input = batch_data[0]
         bbox_input = batch_data[1]
+        for j, batch in enumerate(frame_input):
+            tf_writer.add_image('training_image', qc_image(batch), epoch*i*j)
+
         frame_input = frame_input.permute((0, 2, 1, 3, 4))
-        # frame_input = torch.reshape(frame_input,(batch_size*num_frames, 3, frame_input.shape[3], frame_input.shape[4]))
-        activities_scores = model(frame_input)
+        activities_scores = model((frame_input, bbox_input))
+        # activities_scores = torch.squeeze(activities_scores)
 
         # Predict activities
         activities_loss = ce_loss(activities_scores, activities_in)
@@ -177,32 +207,33 @@ def train_volleyball(data_loader, model, device, optimizer, epoch, cfg):
                                 activities_scores.shape[0])
 
         # Total loss
-        total_loss = activities_loss
-        loss_meter.update(total_loss.item(), batch_size)
+        loss_meter.update(activities_loss.item(), batch_size)
 
         # Optim
         optimizer.zero_grad()
-        total_loss.backward()
+        activities_loss.backward()
         optimizer.step()
 
+    tf_writer.add_scalar('loss/train', loss_meter.avg, epoch)
+    tf_writer.add_scalar('acc/activities_acc', activities_meter.avg*100, epoch)
     train_info = {
         'time': epoch_timer.timeit(),
         'epoch': epoch,
         'loss': loss_meter.avg,
         'activities_acc': activities_meter.avg*100,
-        'actions_acc': actions_meter.avg*100
+        # 'actions_acc': actions_meter.avg*100
     }
 
     return train_info
 
 
-def test_volleyball(data_loader, model, device, epoch, cfg):
+def test_volleyball(data_loader, model, device, epoch, cfg, tf_writer):
     model.eval()
 
-    actions_meter = AverageMeter()
+    # actions_meter = AverageMeter()
     activities_meter = AverageMeter()
     loss_meter = AverageMeter()
-
+    ce_loss = F.CrossEntropyLoss() 
     epoch_timer = Timer()
     with torch.no_grad():
         for batch_data_test in data_loader:
@@ -211,15 +242,18 @@ def test_volleyball(data_loader, model, device, epoch, cfg):
             batch_size = batch_data_test[0].shape[0]
             num_frames = batch_data_test[0].shape[1]
 
-            actions_in = batch_data_test[2].reshape(
-                (batch_size, num_frames, cfg.num_boxes))
+            # actions_in = batch_data_test[2].reshape(
+                # (batch_size, num_frames, cfg.num_boxes))
             activities_in = batch_data_test[3].reshape(
                 (batch_size, num_frames))
 
             # forward
-            # actions_scores, activities_scores = model(
-                # (batch_data_test[0], batch_data_test[1]))
-
+            frame_input = batch_data_test[0].permute((0, 2, 1, 3, 4))
+            activities_scores = model((frame_input, batch_data_test[1]))
+            # Hack to remove single dim except first dim.
+            # activities_scores = torch.squeeze(activities_scores, dim=-1)
+            # activities_scores = torch.squeeze(activities_scores, dim=-1)
+            # activities_scores = torch.squeeze(activities_scores, dim=-1)
             # Predict actions
             # actions_in = actions_in[:, 0, :].reshape(
                 # (batch_size*cfg.num_boxes,))
@@ -235,30 +269,31 @@ def test_volleyball(data_loader, model, device, epoch, cfg):
             activities_loss = ce_loss(activities_scores, activities_in)
             activities_labels = torch.argmax(activities_scores, dim=1)
 
-            actions_correct = torch.sum(
-                torch.eq(actions_labels.int(), actions_in.int()).float())
+            # actions_correct = torch.sum(
+                # torch.eq(actions_labels.int(), actions_in.int()).float())
             activities_correct = torch.sum(
                 torch.eq(activities_labels.int(), activities_in.int()).float())
 
             # Get accuracy
-            actions_accuracy = actions_correct.item()/actions_scores.shape[0]
+            # actions_accuracy = actions_correct.item()/actions_scores.shape[0]
             activities_accuracy = activities_correct.item() / \
                 activities_scores.shape[0]
 
-            actions_meter.update(actions_accuracy, actions_scores.shape[0])
+            # actions_meter.update(actions_accuracy, actions_scores.shape[0])
             activities_meter.update(
                 activities_accuracy, activities_scores.shape[0])
 
             # Total loss
-            total_loss = activities_loss+cfg.actions_loss_weight*actions_loss
+            total_loss = activities_loss
             loss_meter.update(total_loss.item(), batch_size)
 
+    tf_writer.add_scalar('loss/test', loss_meter.avg, epoch)
+    tf_writer.add_scalar('acc/test_activities_acc', activities_meter.avg*100, epoch)
     test_info = {
         'time': epoch_timer.timeit(),
         'epoch': epoch,
         'loss': loss_meter.avg,
         'activities_acc': activities_meter.avg*100,
-        'actions_acc': actions_meter.avg*100
     }
 
     return test_info

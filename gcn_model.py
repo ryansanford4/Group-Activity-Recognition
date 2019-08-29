@@ -25,7 +25,7 @@ class GCN_Module(nn.Module):
         NFG=cfg.num_features_gcn
         NFG_ONE=NFG
         
-        self.fc_rn_theta_list=torch.nn.ModuleList([ nn.Linear(NFG,NFR) for i in range(NG) ])
+        self.fc_rn_theta_list=torch.nn.ModuleList([ nn.Linear(NFG, NFR) for i in range(NG) ])
         self.fc_rn_phi_list=torch.nn.ModuleList([ nn.Linear(NFG,NFR) for i in range(NG) ])
         
         
@@ -74,16 +74,16 @@ class GCN_Module(nn.Module):
 #             graph_boxes_features_theta=self.nl_rn_theta_list[i](graph_boxes_features_theta)
 #             graph_boxes_features_phi=self.nl_rn_phi_list[i](graph_boxes_features_phi)
 
-            similarity_relation_graph=torch.matmul(graph_boxes_features_theta,graph_boxes_features_phi.transpose(1,2))  #B,N,N
+            similarity_relation_graph = torch.matmul(graph_boxes_features_theta, graph_boxes_features_phi.transpose(1,2))  #B,N,N
 
-            similarity_relation_graph=similarity_relation_graph/np.sqrt(NFR)
+            similarity_relation_graph = similarity_relation_graph/np.sqrt(NFR)
 
-            similarity_relation_graph=similarity_relation_graph.reshape(-1,1)  #B*N*N, 1
+            similarity_relation_graph = similarity_relation_graph.reshape(-1,1)  #B*N*N, 1
             
         
         
             # Build relation graph
-            relation_graph=similarity_relation_graph
+            relation_graph = similarity_relation_graph
 
             relation_graph = relation_graph.reshape(B,N,N)
 

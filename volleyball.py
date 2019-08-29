@@ -186,9 +186,9 @@ class VolleyballDataset(data.Dataset):
 
         if self.is_finetune:
             if self.is_training:
-                fid = random.randint(
-                    src_fid - self.num_before, src_fid + self.num_after)
-                return [(sid, src_fid, fid)]
+                sample_frames = list(range(src_fid - self.num_before, src_fid + self.num_after + 1))
+                return [(sid, src_fid, fid)
+                        for fid in sample_frames]
             else:
                 return [(sid, src_fid, fid)
                         for fid in range(src_fid - self.num_before, src_fid + self.num_after + 1)]

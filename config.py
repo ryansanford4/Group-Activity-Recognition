@@ -17,7 +17,7 @@ class Config(object):
         # Gpu
         self.use_gpu=True
         self.use_multi_gpu=True   
-        self.device_list="0,1,2,3"  #id list of gpus used for training 
+        self.device_list="7"  #id list of gpus used for training 
         
         # Dataset
         assert(dataset_name in ['volleyball', 'collective'])
@@ -38,7 +38,7 @@ class Config(object):
         self.backbone='inv3' 
         self.crop_size = 5, 5  #crop size of roi align
         self.train_backbone = False  #if freeze the feature extraction part of network, True for stage 1, False for stage 2
-        self.out_size = 87, 157  #output feature map size of backbone 
+        self.out_size = 7, 7 #output feature map size of backbone 
         self.emb_features=1056   #output feature map channel of backbone
 
         
@@ -70,7 +70,7 @@ class Config(object):
         self.weight_decay = 0  #l2 weight decay
     
         self.max_epoch=150  #max training epoch
-        self.test_interval_epoch=2
+        self.test_interval_epoch = 5
         
         # Exp
         self.training_stage=1  #specify stage1 or stage2
@@ -78,6 +78,7 @@ class Config(object):
         self.test_before_train=False
         self.exp_note='Group-Activity-Recognition'
         self.exp_name=None
+        self.result_path = ''
         
         
     def init_config(self, need_new_folder=True):
