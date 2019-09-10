@@ -1,5 +1,6 @@
 import time
 import os
+import shutil
 
 
 class Config(object):
@@ -9,7 +10,8 @@ class Config(object):
 
     def __init__(self, dataset_name):
         # Global
-        self.image_size = 224, 224  #input image size
+        self.input_size = 224, 224
+        self.image_size = 256, 320  #input image size
         self.batch_size =  32  #train batch size 
         self.test_batch_size = 8  #test batch size
         self.num_boxes = 12  #max number of bounding boxes in each frame
@@ -39,7 +41,7 @@ class Config(object):
         self.crop_size = 5, 5  #crop size of roi align
         self.train_backbone = False  #if freeze the feature extraction part of network, True for stage 1, False for stage 2
         self.out_size = 7, 7 #output feature map size of backbone 
-        self.emb_features=1056   #output feature map channel of backbone
+        self.emb_features = 1024   #output feature map channel of backbone
 
         
         # Activity Action
@@ -53,16 +55,21 @@ class Config(object):
         self.num_before = 5
         self.num_after = 4
 
+        self.roi_align = False
+        self.wrn_width = 1
+
         # GCN
-        self.num_features_boxes = 1024
-        self.num_features_relation=256
-        self.num_graph=16  #number of graphs
-        self.num_features_gcn=self.num_features_boxes
+        self.num_feature_boxes = 512
+        self.num_features_relation = 256
+        self.num_graph=1  #number of graphs
+        self.num_features_gcn = self.num_feature_boxes
         self.gcn_layers=1  #number of GCN layers
         self.tau_sqrt=False
         self.pos_threshold=0.2  #distance mask threshold in position relation
 
         # Training Parameters
+        self.dropout = False
+        self.non_local = False
         self.train_random_seed = 0
         self.train_learning_rate = 2e-4  #initial learning rate 
         self.lr_plan = {41:1e-4, 81:5e-5, 121:1e-5}  #change learning rate in these epochs 
@@ -77,7 +84,7 @@ class Config(object):
         self.stage1_model_path=''  #path of the base model, need to be set in stage2
         self.test_before_train=False
         self.exp_note='Group-Activity-Recognition'
-        self.exp_name=None
+        self.exp_name = None
         self.result_path = ''
         
         
@@ -90,4 +97,6 @@ class Config(object):
         self.log_path='result/%s/log.txt'%self.exp_name
             
         if need_new_folder:
+            if os.path.exists(self.result_path):
+                shutil.rmtree(self.result_path)
             os.mkdir(self.result_path)

@@ -148,13 +148,14 @@ class VolleyballDataset(data.Dataset):
     Characterize volleyball dataset for pytorch
     """
 
-    def __init__(self, anns, tracks, frames, images_path, image_size, feature_size,
+    def __init__(self, anns, tracks, frames, images_path, image_size, input_size, feature_size,
                  num_boxes=12, num_before=4, num_after=4, is_training=True, is_finetune=False):
         self.anns = anns
         self.tracks = tracks
         self.frames = frames
         self.images_path = images_path
         self.image_size = image_size
+        self.input_size = input_size
         self.feature_size = feature_size
 
         self.num_boxes = num_boxes
@@ -218,11 +219,12 @@ class VolleyballDataset(data.Dataset):
             img = Image.open(self.images_path + '/%d/%d/%d.jpg' %
                              (sid, src_fid, fid))
 
+            imagenet_mean = [0.485, 0.456, 0.406]
+            imagenet_std = [0.229, 0.224, 0.225]
             img = transforms.functional.resize(img, self.image_size)
-            img = np.array(img)
-
-            # H,W,3 -> 3,H,W
-            img = img.transpose(2, 0, 1)
+            img = transforms.RandomCrop(self.input_size)(img)
+            img = transforms.ToTensor()(img)
+            img = transforms.Normalize(imagenet_mean, imagenet_std)(img)
             images.append(img)
 
             temp_boxes = np.ones_like(self.tracks[(sid, src_fid)][fid])
